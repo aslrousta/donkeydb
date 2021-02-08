@@ -5,8 +5,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/aslrousta/donkeydb"
 	"github.com/gorilla/mux"
+
+	"github.com/aslrousta/donkeydb"
 )
 
 func main() {
