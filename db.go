@@ -16,7 +16,7 @@ func New() *Database {
 
 // Database is a disk-backed key-value database.
 type Database struct {
-	storage *storage
+	storage *mapStorage
 }
 
 // Get retrieves a value for a given key.

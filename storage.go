@@ -1,23 +1,55 @@
 package donkeydb
 
-func newStorage() *storage {
-	return &storage{
-		Data: make(map[string]interface{}),
+import (
+	"io"
+
+	"github.com/aslrousta/donkeydb/paging"
+)
+
+const (
+	pageSize       = 4 * 1024
+	pageHeaderSize = 16
+)
+
+func createStorage(rws io.ReadWriteSeeker) (*storage, error) {
+	f, err := paging.New(rws, pageSize)
+	if err != nil {
+		return nil, err
 	}
+	p, err := f.Alloc()
+	if err != nil {
+		return nil, err
+	}
+	return &storage{
+		File: f,
+		Root: (*hashTable)(p),
+	}, nil
+}
+
+func openStorage(rws io.ReadWriteSeeker) (*storage, error) {
+	f, err := paging.New(rws, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	p, err := f.Read(0)
+	if err != nil {
+		return nil, err
+	}
+	return &storage{
+		File: f,
+		Root: (*hashTable)(p),
+	}, nil
 }
 
 type storage struct {
-	Data map[string]interface{}
+	File *paging.File
+	Root *hashTable
 }
 
 func (s *storage) Get(key string) (interface{}, error) {
-	if value, exists := s.Data[key]; exists {
-		return value, nil
-	}
-	return nil, ErrNothing
+	panic("implement me")
 }
 
 func (s *storage) Set(key string, value interface{}) error {
-	s.Data[key] = value
-	return nil
+	panic("implement me")
 }
