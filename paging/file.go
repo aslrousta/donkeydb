@@ -6,18 +6,18 @@ import (
 )
 
 // New instantiates a new page-file.
-func New(rws io.ReadWriteSeeker, pageSize int) (*File, error) {
+func New(s io.ReadWriteSeeker, pageSize int) (*File, error) {
 	if pageSize < 1 {
 		return nil, errors.New("paging: invalid page size")
 	}
-	size, err := rws.Seek(0, io.SeekEnd)
+	size, err := s.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}
 	return &File{
-		rws:      rws,
-		pageSize: int64(pageSize),
-		pages:    size / int64(pageSize),
+		Stream:   s,
+		PageSize: int64(pageSize),
+		Pages:    size / int64(pageSize),
 	}, nil
 }
 
@@ -29,25 +29,25 @@ type Page struct {
 
 // File is a page-file over an underlying random-access stream.
 type File struct {
-	rws      io.ReadWriteSeeker
-	pageSize int64
-	pages    int64
+	Stream   io.ReadWriteSeeker
+	PageSize int64
+	Pages    int64
 }
 
 // Read reads a page at the given index from the page-file.
 func (f *File) Read(index int64) (*Page, error) {
-	if index < 0 || index >= f.pages {
+	if index < 0 || index >= f.Pages {
 		return nil, errors.New("paging: invalid page index")
 	}
-	offset := index * f.pageSize
-	if _, err := f.rws.Seek(offset, io.SeekStart); err != nil {
+	offset := index * f.PageSize
+	if _, err := f.Stream.Seek(offset, io.SeekStart); err != nil {
 		return nil, err
 	}
 	page := &Page{
-		Data:  make([]byte, f.pageSize),
+		Data:  make([]byte, f.PageSize),
 		Index: index,
 	}
-	if _, err := f.rws.Read(page.Data); err != nil {
+	if _, err := f.Stream.Read(page.Data); err != nil {
 		return nil, err
 	}
 	return page, nil
@@ -55,11 +55,11 @@ func (f *File) Read(index int64) (*Page, error) {
 
 // Write writes a page back to the page-file.
 func (f *File) Write(page *Page) error {
-	offset := page.Index * f.pageSize
-	if _, err := f.rws.Seek(offset, io.SeekStart); err != nil {
+	offset := page.Index * f.PageSize
+	if _, err := f.Stream.Seek(offset, io.SeekStart); err != nil {
 		return err
 	}
-	if _, err := f.rws.Write(page.Data); err != nil {
+	if _, err := f.Stream.Write(page.Data); err != nil {
 		return err
 	}
 	return nil
@@ -68,12 +68,12 @@ func (f *File) Write(page *Page) error {
 // Alloc allocates a new page at the end of the page-file.
 func (f *File) Alloc() (*Page, error) {
 	page := &Page{
-		Data:  make([]byte, f.pageSize),
-		Index: f.pages,
+		Data:  make([]byte, f.PageSize),
+		Index: f.Pages,
 	}
 	if err := f.Write(page); err != nil {
 		return nil, err
 	}
-	f.pages++
+	f.Pages++
 	return page, nil
 }

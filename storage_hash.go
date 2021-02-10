@@ -31,7 +31,7 @@ func (t *hashTable) SetBucket(index, value int) {
 
 func bucketOffset(index int) int {
 	if index >= maxBuckets {
-		panic("donkey: out-of-bound bucket index")
+		panic("donkey: invalid bucket index")
 	}
 	return pageHeaderSize + bucketSize*index
 }

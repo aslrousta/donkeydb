@@ -11,8 +11,8 @@ const (
 	pageHeaderSize = 16
 )
 
-func createStorage(rws io.ReadWriteSeeker) (*storage, error) {
-	f, err := paging.New(rws, pageSize)
+func createStorage(s io.ReadWriteSeeker) (*storage, error) {
+	f, err := paging.New(s, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +26,8 @@ func createStorage(rws io.ReadWriteSeeker) (*storage, error) {
 	}, nil
 }
 
-func openStorage(rws io.ReadWriteSeeker) (*storage, error) {
-	f, err := paging.New(rws, pageSize)
+func openStorage(s io.ReadWriteSeeker) (*storage, error) {
+	f, err := paging.New(s, pageSize)
 	if err != nil {
 		return nil, err
 	}
