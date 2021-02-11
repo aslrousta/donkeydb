@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	pageSize       = 4 * 1024
-	pageHeaderSize = 16
+	pageSize        = 4 * 1024
+	pageHeaderBytes = 16
 )
 
 func createStorage(s io.ReadWriteSeeker) (*storage, error) {

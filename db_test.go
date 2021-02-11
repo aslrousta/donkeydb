@@ -3,37 +3,37 @@ package donkeydb_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/aslrousta/donkeydb"
 )
 
 func TestDatabase_Get(t *testing.T) {
 	t.Run("Nothing", func(t *testing.T) {
 		d := donkeydb.New()
-		if _, err := d.Get("key"); err != donkeydb.ErrNothing {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		_, err := d.Get("key")
+		assert.Equal(t, donkeydb.ErrNothing, err)
 	})
 	t.Run("Something", func(t *testing.T) {
 		d := donkeydb.New()
 		d.Set("key", "value")
 		v, err := d.Get("key")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if value, ok := v.(string); !ok || value != "value" {
-			t.Fatalf("unexpected value: %v", v)
+		if assert.NoError(t, err) {
+			value, ok := v.(string)
+			if assert.True(t, ok) {
+				assert.Equal(t, "value", value)
+			}
 		}
 	})
 }
 
 func TestDatabase_Set(t *testing.T) {
 	d := donkeydb.New()
-	err := d.Set("key", "value")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	v, _ := d.Get("key")
-	if value, ok := v.(string); !ok || value != "value" {
-		t.Fatalf("unexpected value: %v", v)
+	if err := d.Set("key", "value"); assert.NoError(t, err) {
+		v, _ := d.Get("key")
+		value, ok := v.(string)
+		if assert.True(t, ok) {
+			assert.Equal(t, "value", value)
+		}
 	}
 }

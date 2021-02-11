@@ -3,20 +3,20 @@ package donkeydb
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/aslrousta/donkeydb/paging"
 )
 
 func TestCreateStorage(t *testing.T) {
 	rws := &paging.Memory{}
-	if _, err := createStorage(rws); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	_, err := createStorage(rws)
+	assert.NoError(t, err)
 }
 
 func TestOpenStorage(t *testing.T) {
 	rws := &paging.Memory{}
 	createStorage(rws)
-	if _, err := openStorage(rws); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	_, err := openStorage(rws)
+	assert.NoError(t, err)
 }

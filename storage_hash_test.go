@@ -1,14 +1,14 @@
 package donkeydb
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestHashTable(t *testing.T) {
-	h := &hashTable{
-		Data: make([]byte, pageHeaderSize+bucketSize),
-	}
+	h := &hashTable{Data: make([]byte, pageSize)}
 	magic := (1 << 16) | (2 << 8) | 3
 	h.SetBucket(0, magic)
-	if h.Bucket(0) != magic {
-		t.Fatal("bucket data mismatch")
-	}
+	assert.Equal(t, magic, h.Bucket(0))
 }
