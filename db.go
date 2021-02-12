@@ -1,22 +1,36 @@
 package donkeydb
 
-import "errors"
+import (
+	"errors"
+	"io"
+)
 
 var (
 	// ErrNothing reports a non-existing key.
 	ErrNothing = errors.New("donkey: key not found")
 )
 
-// New instantiates a new key-value database.
-func New() *Database {
-	return &Database{
-		storage: newStorage(),
+// Create creates a new key-value database.
+func Create(s io.ReadWriteSeeker) (*Database, error) {
+	storage, err := createStorage(s)
+	if err != nil {
+		return nil, err
 	}
+	return &Database{storage: storage}, nil
+}
+
+// Open opens an existing key-value database.
+func Open(s io.ReadWriteSeeker) (*Database, error) {
+	storage, err := openStorage(s)
+	if err != nil {
+		return nil, err
+	}
+	return &Database{storage: storage}, nil
 }
 
 // Database is a disk-backed key-value database.
 type Database struct {
-	storage *mapStorage
+	storage *storage
 }
 
 // Get retrieves a value for a given key.

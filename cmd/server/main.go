@@ -2,21 +2,64 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 
 	"github.com/aslrousta/donkeydb"
 )
 
-func main() {
-	d := donkeydb.New()
+var (
+	dbPath = flag.String("db", "", "database file path")
+	port   = flag.Int("port", 8080, "client port")
+)
 
+func main() {
+	flag.Parse()
+	if *dbPath == "" {
+		flag.Usage()
+		os.Exit(1)
+	}
+	file, isNew, err := openOrCreate(*dbPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	db, err := initDB(file, isNew)
+	if err != nil {
+		log.Fatal(err)
+	}
 	r := mux.NewRouter()
-	r.Handle("/{key}", getHandler(d)).Methods(http.MethodGet)
-	r.Handle("/{key}", setHandler(d)).Methods(http.MethodPost)
-	http.ListenAndServe(":8080", r)
+	r.Handle("/{key}", getHandler(db)).Methods(http.MethodGet)
+	r.Handle("/{key}", setHandler(db)).Methods(http.MethodPost)
+	http.ListenAndServe(fmt.Sprintf(":%d", *port), r)
+}
+
+func openOrCreate(path string) (*os.File, bool, error) {
+	file, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, false, err
+		}
+		file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			return nil, false, err
+		}
+		return file, true, nil
+	}
+	return file, false, nil
+}
+
+func initDB(f *os.File, isNew bool) (*donkeydb.Database, error) {
+	if isNew {
+		return donkeydb.Create(f)
+	}
+	return donkeydb.Open(f)
 }
 
 func getHandler(d *donkeydb.Database) http.HandlerFunc {
