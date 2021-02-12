@@ -9,14 +9,44 @@ import (
 )
 
 func TestCreateStorage(t *testing.T) {
-	rws := &paging.Memory{}
-	_, err := createStorage(rws)
+	f := &paging.Memory{}
+	_, err := createStorage(f)
 	assert.NoError(t, err)
 }
 
 func TestOpenStorage(t *testing.T) {
-	rws := &paging.Memory{}
-	createStorage(rws)
-	_, err := openStorage(rws)
+	f := &paging.Memory{}
+	createStorage(f)
+	_, err := openStorage(f)
 	assert.NoError(t, err)
+}
+
+func TestStorage_Get(t *testing.T) {
+	t.Run("Nothing", func(t *testing.T) {
+		s, _ := createStorage(&paging.Memory{})
+		_, err := s.Get("key")
+		assert.Equal(t, ErrNothing, err)
+	})
+	t.Run("Something", func(t *testing.T) {
+		s, _ := createStorage(&paging.Memory{})
+		s.Set("key", "value")
+		v, err := s.Get("key")
+		if assert.NoError(t, err) {
+			value, ok := v.(string)
+			if assert.True(t, ok) {
+				assert.Equal(t, "value", value)
+			}
+		}
+	})
+}
+
+func TestStorage_Set(t *testing.T) {
+	s, _ := createStorage(&paging.Memory{})
+	if err := s.Set("key", "value"); assert.NoError(t, err) {
+		v, _ := s.Get("key")
+		value, ok := v.(string)
+		if assert.True(t, ok) {
+			assert.Equal(t, "value", value)
+		}
+	}
 }

@@ -5,6 +5,8 @@ import "github.com/aslrousta/donkeydb/paging"
 const (
 	kvFreeOffset = 0
 	kvFreeBytes  = 2
+	kvNextOffset = 2
+	kvNextBytes  = 3
 )
 
 type kvTable paging.Page
@@ -59,4 +61,12 @@ func (t *kvTable) Free() int {
 
 func (t *kvTable) SetFree(n int) {
 	pageWriteInt((*paging.Page)(t), kvFreeOffset, kvFreeBytes, n)
+}
+
+func (t *kvTable) Next() int {
+	return pageReadInt((*paging.Page)(t), kvNextOffset, kvNextBytes)
+}
+
+func (t *kvTable) SetNext(n int) {
+	pageWriteInt((*paging.Page)(t), kvNextOffset, kvNextBytes, n)
 }
