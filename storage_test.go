@@ -50,3 +50,18 @@ func TestStorage_Set(t *testing.T) {
 		}
 	}
 }
+
+func TestStorage_Del(t *testing.T) {
+	t.Run("Missing", func(t *testing.T) {
+		s, _ := createStorage(&paging.Memory{})
+		assert.NoError(t, s.Del("key"))
+	})
+	t.Run("Existing", func(t *testing.T) {
+		s, _ := createStorage(&paging.Memory{})
+		s.Set("key", "value")
+		if assert.NoError(t, s.Del("key")) {
+			_, err := s.Get("key")
+			assert.Equal(t, ErrNothing, err)
+		}
+	})
+}

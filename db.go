@@ -42,3 +42,8 @@ func (d *Database) Get(key string) (interface{}, error) {
 func (d *Database) Set(key string, value interface{}) error {
 	return d.storage.Set(key, value)
 }
+
+// Del removes a value for a given key.
+func (d *Database) Del(key string) error {
+	return d.storage.Del(key)
+}

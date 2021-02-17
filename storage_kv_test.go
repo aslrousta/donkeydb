@@ -23,4 +23,10 @@ func TestKVTable(t *testing.T) {
 		_, ok := kv.Find("three")
 		assert.False(t, ok)
 	})
+	t.Run("Delete", func(t *testing.T) {
+		if assert.True(t, kv.Del("two")) {
+			_, ok := kv.Find("two")
+			assert.False(t, ok)
+		}
+	})
 }

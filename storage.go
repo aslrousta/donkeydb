@@ -64,6 +64,14 @@ func (s *storage) Set(key string, value interface{}) error {
 	return s.store(table, bucket, key, value)
 }
 
+func (s *storage) Del(key string) error {
+	table, bucket, err := s.table(key, false)
+	if err != nil {
+		return err
+	}
+	return s.del(table, bucket, key)
+}
+
 func (s *storage) table(key string, create bool) (*hashTable, int, error) {
 	h := hash(key)
 	interval := (math.MaxInt32 + hashMaxBuckets - 1) / hashMaxBuckets
@@ -144,6 +152,22 @@ func (s *storage) store(table *hashTable, bucket int, key string, value interfac
 		}
 		index = int64(kv.Next())
 	}
+}
+
+func (s *storage) del(table *hashTable, bucket int, key string) error {
+	index := int64(table.Bucket(bucket))
+	for index != 0 {
+		page, err := s.File.Read(index)
+		if err != nil {
+			return err
+		}
+		kv := (*kvTable)(page)
+		if deleted := kv.Del(key); deleted {
+			return s.File.Write(page)
+		}
+		index = int64(kv.Next())
+	}
+	return nil
 }
 
 // hash hashes a string using fnv-1a algorithm

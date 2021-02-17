@@ -12,29 +12,15 @@ const (
 type kvTable paging.Page
 
 func (t *kvTable) Find(key string) (string, bool) {
-	page := (*paging.Page)(t)
-	for offset := pageHeaderBytes; offset < pageSize; {
-		h := kvHeader(pageReadInt(page, offset, kvHeaderBytes))
-		if h.Type() == kvTypeSentinel {
-			break
-		}
-		if h.Key() == len(key) {
-			found := true
-			for i := 0; i < h.Key(); i++ {
-				if page.Data[offset+kvHeaderBytes+i] != key[i] {
-					found = false
-					break
-				}
-			}
-			if found {
-				start := offset + kvHeaderBytes + h.Key()
-				end := start + h.Value()
-				return string(page.Data[start:end]), true
-			}
-		}
-		offset += kvHeaderBytes + h.Key() + h.Value()
+	start := t.locate(key)
+	if start < 0 {
+		return "", false
 	}
-	return "", false
+	page := (*paging.Page)(t)
+	h := kvHeader(pageReadInt(page, start, kvHeaderBytes))
+	valueStart := start + kvHeaderBytes + h.Key()
+	valueEnd := valueStart + h.Value()
+	return string(page.Data[valueStart:valueEnd]), true
 }
 
 func (t *kvTable) Store(key, value string) bool {
@@ -55,6 +41,23 @@ func (t *kvTable) Store(key, value string) bool {
 	return true
 }
 
+func (t *kvTable) Del(key string) bool {
+	start := t.locate(key)
+	if start < 0 {
+		return false
+	}
+	page := (*paging.Page)(t)
+	h := kvHeader(pageReadInt(page, start, kvHeaderBytes))
+	bytes := kvHeaderBytes + h.Key() + h.Value()
+	end := start + bytes
+	free := t.Free()
+	copy(page.Data[start:], page.Data[end:pageSize-free])
+	free += bytes
+	pageWriteInt(page, pageSize-free, kvHeaderBytes, 0)
+	t.SetFree(free)
+	return true
+}
+
 func (t *kvTable) Free() int {
 	return pageReadInt((*paging.Page)(t), kvFreeOffset, kvFreeBytes)
 }
@@ -69,4 +72,28 @@ func (t *kvTable) Next() int {
 
 func (t *kvTable) SetNext(n int) {
 	pageWriteInt((*paging.Page)(t), kvNextOffset, kvNextBytes, n)
+}
+
+func (t *kvTable) locate(key string) (offset int) {
+	page := (*paging.Page)(t)
+	for offset = pageHeaderBytes; offset < pageSize; {
+		h := kvHeader(pageReadInt(page, offset, kvHeaderBytes))
+		if h.Type() == kvTypeSentinel {
+			break
+		}
+		if h.Key() == len(key) {
+			found := true
+			for i := 0; i < h.Key(); i++ {
+				if page.Data[offset+kvHeaderBytes+i] != key[i] {
+					found = false
+					break
+				}
+			}
+			if found {
+				return offset
+			}
+		}
+		offset += kvHeaderBytes + h.Key() + h.Value()
+	}
+	return -1
 }
