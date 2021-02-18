@@ -37,6 +37,7 @@ func main() {
 	r := mux.NewRouter()
 	r.Handle("/{key}", getHandler(db)).Methods(http.MethodGet)
 	r.Handle("/{key}", setHandler(db)).Methods(http.MethodPost)
+	r.Handle("/{key}", delHandler(db)).Methods(http.MethodDelete)
 	http.ListenAndServe(fmt.Sprintf(":%d", *port), r)
 }
 
@@ -87,6 +88,16 @@ func setHandler(d *donkeydb.Database) http.HandlerFunc {
 		}
 		if err := d.Set(pathVars["key"], string(value)); err != nil {
 			writeError(w, err)
+		}
+	}
+}
+
+func delHandler(d *donkeydb.Database) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pathVars := mux.Vars(r)
+		if err := d.Del(pathVars["key"]); err != nil {
+			writeError(w, err)
+			return
 		}
 	}
 }
