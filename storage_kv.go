@@ -74,6 +74,10 @@ func (t *kvTable) SetNext(n int) {
 	pageWriteInt((*paging.Page)(t), kvNextOffset, kvNextBytes, n)
 }
 
+func (t *kvTable) IsEmpty() bool {
+	return t.Free() == pageSize-pageHeaderBytes
+}
+
 func (t *kvTable) locate(key string) (offset int) {
 	page := (*paging.Page)(t)
 	for offset = pageHeaderBytes; offset < pageSize; {

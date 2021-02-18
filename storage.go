@@ -127,7 +127,7 @@ func (s *storage) store(table *hashTable, bucket int, key string, value interfac
 	for {
 		if index == 0 {
 			prevPage := page
-			if page, err = s.File.Alloc(); err != nil {
+			if page, err = s.alloc(); err != nil {
 				return err
 			}
 			(*kvTable)(page).SetFree(pageSize - pageHeaderBytes)
@@ -137,8 +137,8 @@ func (s *storage) store(table *hashTable, bucket int, key string, value interfac
 					return err
 				}
 			} else {
-				previous := (*kvTable)(prevPage)
-				previous.SetNext(int(page.Index))
+				prev := (*kvTable)(prevPage)
+				prev.SetNext(int(page.Index))
 				if err := s.File.Write(prevPage); err != nil {
 					return err
 				}
@@ -155,6 +155,7 @@ func (s *storage) store(table *hashTable, bucket int, key string, value interfac
 }
 
 func (s *storage) del(table *hashTable, bucket int, key string) error {
+	var prev *kvTable
 	index := int64(table.Bucket(bucket))
 	for index != 0 {
 		page, err := s.File.Read(index)
@@ -163,11 +164,51 @@ func (s *storage) del(table *hashTable, bucket int, key string) error {
 		}
 		kv := (*kvTable)(page)
 		if deleted := kv.Del(key); deleted {
-			return s.File.Write(page)
+			if !kv.IsEmpty() {
+				return s.File.Write(page)
+			}
+			return s.dealloc(kv, prev, table, bucket)
 		}
+		prev = kv
 		index = int64(kv.Next())
 	}
 	return nil
+}
+
+func (s *storage) alloc() (*paging.Page, error) {
+	if s.Root.FreeList() == 0 {
+		return s.File.Alloc()
+	}
+	page, err := s.File.Read(int64(s.Root.FreeList()))
+	if err != nil {
+		return nil, err
+	}
+	kv := (*kvTable)(page)
+	s.Root.SetFreeList(kv.Next())
+	if err := s.File.Write((*paging.Page)(s.Root)); err != nil {
+		return nil, err
+	}
+	return page, nil
+}
+
+func (s *storage) dealloc(kv, prev *kvTable, table *hashTable, bucket int) error {
+	if prev == nil {
+		table.SetBucket(bucket, kv.Next())
+		if err := s.File.Write((*paging.Page)(table)); err != nil {
+			return err
+		}
+	} else {
+		prev.SetNext(kv.Next())
+		if err := s.File.Write((*paging.Page)(prev)); err != nil {
+			return err
+		}
+	}
+	kv.SetNext(s.Root.FreeList())
+	if err := s.File.Write((*paging.Page)(kv)); err != nil {
+		return err
+	}
+	s.Root.SetFreeList(int(kv.Index))
+	return s.File.Write((*paging.Page)(s.Root))
 }
 
 // hash hashes a string using fnv-1a algorithm
