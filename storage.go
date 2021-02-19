@@ -6,12 +6,15 @@ import (
 	"math"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/aslrousta/donkeydb/paging"
 )
 
 const (
 	pageSize        = 4 * 1024
 	pageHeaderBytes = 16
+	pageCacheSize   = 8
 )
 
 func createStorage(s io.ReadWriteSeeker) (*storage, error) {
@@ -23,9 +26,14 @@ func createStorage(s io.ReadWriteSeeker) (*storage, error) {
 	if err != nil {
 		return nil, err
 	}
+	cache, err := lru.New(pageCacheSize)
+	if err != nil {
+		return nil, err
+	}
 	return &storage{
-		File: f,
-		Root: (*hashTable)(p),
+		File:  f,
+		Cache: cache,
+		Root:  (*hashTable)(p),
 	}, nil
 }
 
@@ -38,16 +46,23 @@ func openStorage(s io.ReadWriteSeeker) (*storage, error) {
 	if err != nil {
 		return nil, err
 	}
+	cache, err := lru.New(pageCacheSize)
+	if err != nil {
+		return nil, err
+	}
 	return &storage{
-		File: f,
-		Root: (*hashTable)(p),
+		File:  f,
+		Cache: cache,
+		Root:  (*hashTable)(p),
 	}, nil
 }
 
 type storage struct {
-	File  *paging.File
-	Root  *hashTable
-	Mutex sync.RWMutex
+	Mutex      sync.RWMutex
+	File       *paging.File
+	Root       *hashTable
+	CacheMutex sync.Mutex
+	Cache      *lru.Cache
 }
 
 func (s *storage) Get(key string) (interface{}, error) {
@@ -118,7 +133,7 @@ func (s *storage) table(key string, create bool) (*hashTable, int, error) {
 func (s *storage) secondary(bucket int, create bool) (*hashTable, error) {
 	var page *paging.Page
 	var err error
-	if index := int64(s.Root.Bucket(bucket)); index == 0 {
+	if index := s.Root.Bucket(bucket); index == 0 {
 		if !create {
 			return nil, ErrNothing
 		}
@@ -129,16 +144,16 @@ func (s *storage) secondary(bucket int, create bool) (*hashTable, error) {
 		if err := s.File.Write((*paging.Page)(s.Root)); err != nil {
 			return nil, err
 		}
-	} else if page, err = s.File.Read(index); err != nil {
+	} else if page, err = s.load(index); err != nil {
 		return nil, err
 	}
 	return (*hashTable)(page), nil
 }
 
 func (s *storage) find(table *hashTable, bucket int, key string) (interface{}, error) {
-	index := int64(table.Bucket(bucket))
+	index := table.Bucket(bucket)
 	for index != 0 {
-		page, err := s.File.Read(index)
+		page, err := s.load(index)
 		if err != nil {
 			return nil, err
 		}
@@ -146,13 +161,13 @@ func (s *storage) find(table *hashTable, bucket int, key string) (interface{}, e
 		if value, exists := kv.Find(key); exists {
 			return value, nil
 		}
-		index = int64(kv.Next())
+		index = kv.Next()
 	}
 	return nil, ErrNothing
 }
 
 func (s *storage) store(table *hashTable, bucket int, key string, value interface{}) (err error) {
-	index := int64(table.Bucket(bucket))
+	index := table.Bucket(bucket)
 	var page *paging.Page
 	for {
 		if index == 0 {
@@ -173,22 +188,22 @@ func (s *storage) store(table *hashTable, bucket int, key string, value interfac
 					return err
 				}
 			}
-		} else if page, err = s.File.Read(index); err != nil {
+		} else if page, err = s.load(index); err != nil {
 			return err
 		}
 		kv := (*kvTable)(page)
 		if stored := kv.Store(key, value.(string)); stored {
 			return s.File.Write(page)
 		}
-		index = int64(kv.Next())
+		index = kv.Next()
 	}
 }
 
 func (s *storage) del(table *hashTable, bucket int, key string) error {
 	var prev *kvTable
-	index := int64(table.Bucket(bucket))
+	index := table.Bucket(bucket)
 	for index != 0 {
-		page, err := s.File.Read(index)
+		page, err := s.load(index)
 		if err != nil {
 			return err
 		}
@@ -200,16 +215,30 @@ func (s *storage) del(table *hashTable, bucket int, key string) error {
 			return s.dealloc(kv, prev, table, bucket)
 		}
 		prev = kv
-		index = int64(kv.Next())
+		index = kv.Next()
 	}
 	return nil
+}
+
+func (s *storage) load(index int) (*paging.Page, error) {
+	s.CacheMutex.Lock()
+	defer s.CacheMutex.Unlock()
+	if v, ok := s.Cache.Get(index); ok {
+		return v.(*paging.Page), nil
+	}
+	page, err := s.File.Read(int64(index))
+	if err != nil {
+		return nil, err
+	}
+	s.Cache.Add(index, page)
+	return page, nil
 }
 
 func (s *storage) alloc() (*paging.Page, error) {
 	if s.Root.FreeList() == 0 {
 		return s.File.Alloc()
 	}
-	page, err := s.File.Read(int64(s.Root.FreeList()))
+	page, err := s.load(s.Root.FreeList())
 	if err != nil {
 		return nil, err
 	}

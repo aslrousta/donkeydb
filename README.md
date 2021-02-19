@@ -11,6 +11,6 @@ databases.
 - [x] Support for `DEL` command
 - [x] Reuse empty pages
 - [x] Support for integer values
+- [x] Page caching (LRU)
 - [ ] Benchmark (correctness, memory, performance)
-- [ ] Page caching (LRU)
 - [ ] Compress pages
