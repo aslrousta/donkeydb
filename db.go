@@ -12,6 +12,10 @@ var (
 	ErrKeyTooShort = errors.New("donkey: key is too short")
 	// ErrKeyTooLong reports a too long key.
 	ErrKeyTooLong = errors.New("donkey: key is too long")
+	// ErrUnsuppValue reports an unsupported value type.
+	ErrUnsuppValue = errors.New("donkey: unsupported value")
+	// ErrValueTooLong reports a too long value.
+	ErrValueTooLong = errors.New("donkey: value is too long")
 )
 
 // Create creates a new key-value database.

@@ -10,6 +10,7 @@ databases.
 - [x] Can be used both as a server and embedded
 - [x] Support for `DEL` command
 - [x] Reuse empty pages
-- [ ] Support for integer values
+- [x] Support for integer values
+- [ ] Benchmark (correctness, memory, performance)
+- [ ] Page caching (LRU)
 - [ ] Compress pages
-- [ ] Benchmark (correctness, memory, performance, compare with Redis)

@@ -1,6 +1,10 @@
 package donkeydb
 
-import "github.com/aslrousta/donkeydb/paging"
+import (
+	"encoding/binary"
+
+	"github.com/aslrousta/donkeydb/paging"
+)
 
 const (
 	kvFreeOffset = 0
@@ -11,32 +15,55 @@ const (
 
 type kvTable paging.Page
 
-func (t *kvTable) Find(key string) (string, bool) {
+func (t *kvTable) Find(key string) (interface{}, bool) {
 	start := t.locate(key)
 	if start < 0 {
-		return "", false
+		return nil, false
 	}
 	page := (*paging.Page)(t)
 	h := kvHeader(pageReadInt(page, start, kvHeaderBytes))
 	valueStart := start + kvHeaderBytes + h.Key()
 	valueEnd := valueStart + h.Value()
-	return string(page.Data[valueStart:valueEnd]), true
+	value := page.Data[valueStart:valueEnd]
+	switch h.Type() {
+	case kvTypeString:
+		return string(value), true
+	case kvTypeInteger:
+		n, _ := binary.Varint(value)
+		return n, true
+	default:
+		return nil, true
+	}
 }
 
-func (t *kvTable) Store(key, value string) bool {
-	bytes := kvHeaderBytes + len(key) + len(value)
+func (t *kvTable) Store(key string, value interface{}) bool {
+	var data []byte
+	var dataType int
+	switch v := value.(type) {
+	case string:
+		data = []byte(v)
+		dataType = kvTypeString
+	case int64:
+		data = make([]byte, 10)
+		n := binary.PutVarint(data, v)
+		data = data[:n]
+		dataType = kvTypeInteger
+	default:
+		panic("donkey: unsupported value type")
+	}
+	bytes := kvHeaderBytes + len(key) + len(data)
 	free := t.Free()
 	if bytes > free {
 		return false
 	}
 	offset := pageSize - free
 	page := (*paging.Page)(t)
-	h := kvh(kvTypeString, len(key), len(value))
+	h := kvh(dataType, len(key), len(data))
 	pageWriteInt(page, offset, kvHeaderBytes, int(h))
 	offset += kvHeaderBytes
 	copy(page.Data[offset:], key)
 	offset += len(key)
-	copy(page.Data[offset:], value)
+	copy(page.Data[offset:], data)
 	t.SetFree(free - bytes)
 	return true
 }

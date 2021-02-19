@@ -67,6 +67,16 @@ func (s *storage) Set(key string, value interface{}) error {
 	if err := checkKeyLen(len(key)); err != nil {
 		return err
 	}
+	switch v := value.(type) {
+	case string:
+		if len(v) > kvHeaderValueMaxLen || 2*len(v) > pageSize {
+			return ErrValueTooLong
+		}
+	case int64:
+		// Let is pass.
+	default:
+		return ErrUnsuppValue
+	}
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 	table, bucket, err := s.table(key, true)
@@ -235,7 +245,7 @@ func checkKeyLen(keyLen int) error {
 	switch {
 	case keyLen == 0:
 		return ErrKeyTooShort
-	case keyLen > kvHeaderMaxKeyLen:
+	case keyLen > kvHeaderKeyMaxLen:
 		return ErrKeyTooLong
 	default:
 		return nil

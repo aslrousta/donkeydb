@@ -5,11 +5,12 @@ const (
 	kvHeaderTypeBits    = 4
 	kvHeaderKeyBits     = 8
 	kvHeaderValueBits   = kvHeaderBytes*8 - kvHeaderTypeBits - kvHeaderKeyBits
-	kvHeaderMaxKeyLen   = 1 << kvHeaderKeyBits
-	kvHeaderMaxValueLen = (1 << kvHeaderValueBits) - 1
+	kvHeaderKeyMaxLen   = 1 << kvHeaderKeyBits
+	kvHeaderValueMaxLen = (1 << kvHeaderValueBits) - 1
 
 	kvTypeSentinel = 0
 	kvTypeString   = 1
+	kvTypeInteger  = 2
 )
 
 type kvHeader int
