@@ -8,6 +8,10 @@ import (
 var (
 	// ErrNothing reports a non-existing key.
 	ErrNothing = errors.New("donkey: key not found")
+	// ErrKeyTooShort reports an empty key.
+	ErrKeyTooShort = errors.New("donkey: key is too short")
+	// ErrKeyTooLong reports a too long key.
+	ErrKeyTooLong = errors.New("donkey: key is too long")
 )
 
 // Create creates a new key-value database.

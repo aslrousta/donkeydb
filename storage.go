@@ -4,6 +4,7 @@ import (
 	"hash/fnv"
 	"io"
 	"math"
+	"sync"
 
 	"github.com/aslrousta/donkeydb/paging"
 )
@@ -44,11 +45,17 @@ func openStorage(s io.ReadWriteSeeker) (*storage, error) {
 }
 
 type storage struct {
-	File *paging.File
-	Root *hashTable
+	File  *paging.File
+	Root  *hashTable
+	Mutex sync.RWMutex
 }
 
 func (s *storage) Get(key string) (interface{}, error) {
+	if err := checkKeyLen(len(key)); err != nil {
+		return nil, err
+	}
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
 	table, bucket, err := s.table(key, false)
 	if err != nil {
 		return nil, err
@@ -57,14 +64,27 @@ func (s *storage) Get(key string) (interface{}, error) {
 }
 
 func (s *storage) Set(key string, value interface{}) error {
+	if err := checkKeyLen(len(key)); err != nil {
+		return err
+	}
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
 	table, bucket, err := s.table(key, true)
 	if err != nil {
+		return err
+	}
+	if err := s.del(table, bucket, key); err != nil {
 		return err
 	}
 	return s.store(table, bucket, key, value)
 }
 
 func (s *storage) Del(key string) error {
+	if err := checkKeyLen(len(key)); err != nil {
+		return err
+	}
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
 	table, bucket, err := s.table(key, false)
 	if err != nil {
 		return err
@@ -209,6 +229,17 @@ func (s *storage) dealloc(kv, prev *kvTable, table *hashTable, bucket int) error
 	}
 	s.Root.SetFreeList(int(kv.Index))
 	return s.File.Write((*paging.Page)(s.Root))
+}
+
+func checkKeyLen(keyLen int) error {
+	switch {
+	case keyLen == 0:
+		return ErrKeyTooShort
+	case keyLen > kvHeaderMaxKeyLen:
+		return ErrKeyTooLong
+	default:
+		return nil
+	}
 }
 
 // hash hashes a string using fnv-1a algorithm

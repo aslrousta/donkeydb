@@ -1,10 +1,12 @@
 package donkeydb
 
 const (
-	kvHeaderBytes     = 3
-	kvHeaderTypeBits  = 4
-	kvHeaderKeyBits   = 8
-	kvHeaderValueBits = kvHeaderBytes*8 - kvHeaderTypeBits - kvHeaderKeyBits
+	kvHeaderBytes       = 3
+	kvHeaderTypeBits    = 4
+	kvHeaderKeyBits     = 8
+	kvHeaderValueBits   = kvHeaderBytes*8 - kvHeaderTypeBits - kvHeaderKeyBits
+	kvHeaderMaxKeyLen   = 1 << kvHeaderKeyBits
+	kvHeaderMaxValueLen = (1 << kvHeaderValueBits) - 1
 
 	kvTypeSentinel = 0
 	kvTypeString   = 1
@@ -17,7 +19,7 @@ func (h kvHeader) Type() int {
 }
 
 func (h kvHeader) Key() int {
-	return (int(h) >> kvHeaderValueBits) & ((1 << kvHeaderKeyBits) - 1)
+	return ((int(h) >> kvHeaderValueBits) & ((1 << kvHeaderKeyBits) - 1)) + 1
 }
 
 func (h kvHeader) Value() int {
@@ -25,6 +27,6 @@ func (h kvHeader) Value() int {
 }
 
 func kvh(t, k, v int) kvHeader {
-	value := (((t << kvHeaderKeyBits) | k) << kvHeaderValueBits) | v
+	value := (((t << kvHeaderKeyBits) | (k - 1)) << kvHeaderValueBits) | v
 	return kvHeader(value)
 }
